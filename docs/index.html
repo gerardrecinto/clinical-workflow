@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>clinical-workflow-lab</title>
+<meta name="description" content="Event-driven referral workflow lab: outbox, saga, work-item queue, signed API, audit chain. Synthetic data only.">
+<style>
+:root{--bg:#fff;--fg:#1d1d1f;--mut:#5c5c63;--line:#d9d9de;--acc:#0a5cd6;--card:#f6f6f8}
+@media(prefers-color-scheme:dark){:root{--bg:#121214;--fg:#ececf0;--mut:#a0a0aa;--line:#2d2d33;--acc:#6aa5ff;--card:#1b1b1f}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.55 -apple-system,system-ui,Segoe UI,sans-serif}
+main{max-width:860px;margin:0 auto;padding:32px 16px 64px}
+h1{font-size:28px;margin:0 0 8px}h2{font-size:20px;margin:40px 0 12px}
+p{margin:8px 0}a{color:var(--acc)}code,pre{font:13px/1.5 ui-monospace,Menlo,monospace}
+pre{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px;overflow:auto}
+.mut{color:var(--mut)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;vertical-align:top;padding:8px;border-bottom:1px solid var(--line)}
+th{color:var(--mut);font-weight:600}
+.scroll{overflow-x:auto}
+svg{width:100%;height:auto;background:var(--card);border:1px solid var(--line);border-radius:8px}
+svg text{fill:var(--fg);font:12px ui-monospace,Menlo,monospace}
+svg rect{fill:var(--bg);stroke:var(--acc);stroke-width:1.5}
+svg path{stroke:var(--mut);fill:none;stroke-width:1.5}
+svg .d{stroke-dasharray:4 3}
+</style>
+</head>
+<body>
+<main>
+<h1>clinical-workflow-lab</h1>
+<p>A referral moves through eligibility, scheduling and notification as a saga. It retries transient failures, undoes earlier steps on a permanent one, and hands steps with no API to a work-item queue. Python stdlib only, synthetic data only.</p>
+<p><a href="https://github.com/gerardrecinto/clinical-workflow-lab">Source on GitHub</a></p>
+
+<h2>Flow</h2>
+<svg viewBox="0 0 820 230" role="img" aria-label="Referral flow from signed API through outbox to saga steps, with a work-item queue and dead-letter state">
+<rect x="10" y="20" width="120" height="48"/><text x="24" y="48">signed API</text>
+<rect x="170" y="20" width="120" height="48"/><text x="188" y="48">outbox event</text>
+<rect x="330" y="20" width="140" height="48"/><text x="346" y="48">saga orchestrator</text>
+<rect x="510" y="20" width="130" height="48"/><text x="528" y="48">eligibility</text>
+<rect x="510" y="100" width="130" height="48"/><text x="528" y="128">scheduling</text>
+<rect x="510" y="180" width="130" height="40"/><text x="540" y="204">notify</text>
+<rect x="680" y="20" width="130" height="48"/><text x="690" y="48">work-item queue</text>
+<rect x="170" y="130" width="120" height="48"/><text x="188" y="158">dead letters</text>
+<rect x="330" y="130" width="140" height="48"/><text x="352" y="158">compensation</text>
+<path d="M130 44H170M290 44H330M470 44H510M575 68V100M575 148V180"/>
+<path class="d" d="M640 44H680M470 70L510 124M330 70L250 130M430 68V130"/>
+<text x="650" y="90">manual step</text>
+<text x="20" y="215" class="mut">dashed: manual hand-off, permanent failure, retries exhausted</text>
+</svg>
+
+<h2>What each requirement maps to</h2>
+<div class="scroll"><table>
+<tr><th>Skill</th><th>Where</th><th>What it shows</th></tr>
+<tr><td>Healthcare workflow automation</td><td><code>workflow.py</code></td><td>Referral saga with compensation: a late notify failure releases the reserved slot.</td></tr>
+<tr><td>EHR and enterprise integration</td><td><code>fhir.py</code></td><td>Strict intake in, FHIR R4 ServiceRequest and Task out. No live EHR connection.</td></tr>
+<tr><td>Secure software development</td><td><code>security.py</code>, <code>api.py</code></td><td>HMAC signing with replay window, body size limit, unknown-field rejection, PHI redaction, exception types only in stored errors, hash-chained audit log.</td></tr>
+<tr><td>Microservices, event-driven</td><td><code>bus.py</code></td><td>Transactional outbox, at-least-once delivery, per-consumer idempotency, backoff, dead letters.</td></tr>
+<tr><td>Distributed systems</td><td><code>test_cwl.py</code></td><td>Redelivery after lost ack, lease expiry, duplicate event, retry exhaustion.</td></tr>
+<tr><td>API development</td><td><code>api.py</code></td><td>Idempotency-Key, 202 vs 200 on replay, 401, 400, 413, end-to-end HTTP test.</td></tr>
+<tr><td>Workflow orchestration</td><td><code>workflow.py</code></td><td>Persisted saga state, stale-event guard, WAITING state resumed by an external actor.</td></tr>
+<tr><td>Intelligent automation: UiPath, Notable, Epic Agent Factory</td><td><code>/queue/next</code>, <code>/queue/{id}/complete</code></td><td>A leased work-item queue shaped for a bot or agent to poll and complete. Not tested against those products; I have no access to them.</td></tr>
+<tr><td>AWS cloud application development</td><td><code>infra/aws</code></td><td>SQS plus dead-letter queue, KMS with rotation, TLS-only policy, separate producer and consumer IAM, DLQ alarm. Validated in CI, never applied.</td></tr>
+<tr><td>Team leadership and mentoring</td><td>decisions below, PR checklist</td><td>Written trade-offs and a five-question review checklist a team can adopt. The real mentoring record is on my resume, not in this repo.</td></tr>
+</table></div>
+
+<h2>Decisions and trade-offs</h2>
+<p>All design-only: this lab was never run in production.</p>
+<div class="scroll"><table>
+<tr><th>Chose</th><th>Over</th><th>Why</th><th>Costs</th><th>Flip when</th></tr>
+<tr><td>Outbox in the same database transaction</td><td>Publish to a broker after commit</td><td>No window where state changes but the event is lost.</td><td>Needs a poller; delivery is at-least-once, so handlers must be idempotent.</td><td>Throughput outgrows one database. Move to a broker with a relay.</td></tr>
+<tr><td>Orchestrated saga</td><td>Choreography by events</td><td>One place shows where a referral is stuck and what to undo.</td><td>The orchestrator knows every step and is a coupling point.</td><td>Steps are owned by separate teams that need independent release.</td></tr>
+<tr><td>Work-item queue with leases</td><td>Bot writes directly to the database</td><td>The bot gets one narrow, signed surface and a crashed bot loses its claim in 60 s.</td><td>One more state machine to test.</td><td>The payer offers an API. Delete the manual step.</td></tr>
+<tr><td>HMAC with timestamp</td><td>OAuth2 client credentials</td><td>Nothing to run for a lab, still stops tamper and replay.</td><td>Shared secret rotation is manual.</td><td>Any real caller. Use OAuth2 and mTLS.</td></tr>
+<tr><td>SQLite</td><td>Postgres and SQS</td><td>Clone and run in seconds.</td><td>Single writer; the lock serializes everything.</td><td>Always, for anything beyond a demo. Terraform shows the SQS side.</td></tr>
+</table></div>
+
+<h2>Run it</h2>
+<pre>git clone https://github.com/gerardrecinto/clinical-workflow-lab
+cd clinical-workflow-lab
+python3 -m venv .venv &amp;&amp; . .venv/bin/activate
+pip install pytest
+PYTHONPATH=src python -m cwl.demo
+PYTHONPATH=src python -m pytest -q</pre>
+
+<h2>Limits</h2>
+<p class="mut">Synthetic data. No real EHR, Epic, Notable or UiPath integration. Not a HIPAA compliance claim: encryption at rest, access control, BAAs and retention are deployment work this lab does not do. Slot and payer services are in-memory stand-ins.</p>
+</main>
+</body>
+</html>

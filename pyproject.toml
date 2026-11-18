@@ -1,0 +1,15 @@
+[project]
+name = "clinical-workflow-lab"
+version = "0.1.0"
+description = "Event-driven referral workflow lab: outbox, saga, work-item queue, signed API, audit chain. Synthetic data only."
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
