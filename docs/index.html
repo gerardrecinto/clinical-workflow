@@ -5,52 +5,117 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>clinical-workflow-lab</title>
 <meta name="description" content="Event-driven referral workflow lab: outbox, saga, work-item queue, signed API, audit chain. Synthetic data only.">
+<meta name="theme-color" content="#07080c">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Ccircle cx=%278%27 cy=%278%27 r=%276%27 fill=%27%235eead4%27/%3E%3C/svg%3E">
 <style>
-:root{--bg:#fff;--fg:#1d1d1f;--mut:#5c5c63;--line:#d9d9de;--acc:#0a5cd6;--card:#f6f6f8}
-@media(prefers-color-scheme:dark){:root{--bg:#121214;--fg:#ececf0;--mut:#a0a0aa;--line:#2d2d33;--acc:#6aa5ff;--card:#1b1b1f}}
+:root{--bg:#07080c;--fg:#e8eaf0;--mut:#9aa0ae;--line:#222733;--card:#0e1118;--acc:#5eead4;--acc2:#60a5fa;--ok:#4ade80;--bad:#f87171;--warn:#fbbf24;--ease:cubic-bezier(.16,1,.3,1)}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.55 -apple-system,system-ui,Segoe UI,sans-serif}
-main{max-width:860px;margin:0 auto;padding:32px 16px 64px}
-h1{font-size:28px;margin:0 0 8px}h2{font-size:20px;margin:40px 0 12px}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 -apple-system,system-ui,Segoe UI,sans-serif;overflow-x:hidden}
+.orbs{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none}
+.orb{position:absolute;border-radius:50%;filter:blur(90px);opacity:.28}
+.orb.a{width:520px;height:520px;background:#0ea5a4;top:-140px;left:-120px;animation:da 26s ease-in-out infinite alternate}
+.orb.b{width:480px;height:480px;background:#3b6cf6;top:30%;right:-160px;animation:db 32s ease-in-out infinite alternate}
+.orb.c{width:420px;height:420px;background:#7c3aed;bottom:-140px;left:25%;animation:dc 38s ease-in-out infinite alternate}
+@keyframes da{to{transform:translate(160px,120px)}}@keyframes db{to{transform:translate(-200px,160px)}}@keyframes dc{to{transform:translate(180px,-140px)}}
+.grid{position:fixed;inset:0;z-index:-1;pointer-events:none;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:56px 56px;opacity:.25;mask-image:radial-gradient(ellipse at 50% 20%,#000 20%,transparent 75%)}
+main{max-width:960px;margin:0 auto;padding:72px 16px 80px}
+h1{font-size:clamp(34px,6vw,56px);line-height:1.05;margin:0 0 14px;letter-spacing:-.02em;background:linear-gradient(100deg,#fff 0%,var(--acc) 45%,var(--acc2) 100%);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:sheen 6s ease-in-out infinite alternate}
+@keyframes sheen{to{background-position:100% 0}}
+h2{font-size:22px;margin:56px 0 14px;letter-spacing:-.01em}
 p{margin:8px 0}a{color:var(--acc)}code,pre{font:13px/1.5 ui-monospace,Menlo,monospace}
-pre{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px;overflow:auto}
+.lead{font-size:18px;color:#c9cedb;max-width:720px}
 .mut{color:var(--mut)}
-table{width:100%;border-collapse:collapse;font-size:14px}
-th,td{text-align:left;vertical-align:top;padding:8px;border-bottom:1px solid var(--line)}
-th{color:var(--mut);font-weight:600}
+.cta{display:flex;gap:12px;flex-wrap:wrap;margin:22px 0 0}
+.btn{appearance:none;border:1px solid var(--line);background:var(--card);color:var(--fg);padding:10px 16px;border-radius:10px;font:600 14px inherit;font-family:inherit;cursor:pointer;text-decoration:none;transition:transform .25s var(--ease),border-color .25s,box-shadow .25s}
+.btn:hover{transform:translateY(-2px);border-color:var(--acc);box-shadow:0 8px 28px -10px var(--acc)}
+.btn:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.btn.p{background:linear-gradient(100deg,var(--acc),var(--acc2));color:#04121a;border-color:transparent}
+.btn[aria-pressed=true]{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:36px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.stat b{display:block;font-size:30px;letter-spacing:-.02em;color:var(--acc)}
+.stat span{color:var(--mut);font-size:13px}
+.rv{opacity:0;transform:translateY(18px);transition:opacity .8s var(--ease),transform .8s var(--ease)}
+.rv.in{opacity:1;transform:none}
+.sim{background:linear-gradient(180deg,var(--card),#0a0c12);border:1px solid var(--line);border-radius:16px;padding:18px;position:relative}
+.scn{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.pipe{position:relative;display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+.node{border:1px solid var(--line);background:#0b0e15;border-radius:12px;padding:10px 6px;text-align:center;font:600 12px ui-monospace,Menlo,monospace;color:var(--mut);transition:all .45s var(--ease);min-height:48px;display:flex;align-items:center;justify-content:center;position:relative;z-index:1}
+.node.active{border-color:var(--acc2);color:#fff;box-shadow:0 0 0 1px var(--acc2),0 0 28px -4px var(--acc2);transform:translateY(-3px)}
+.node.ok{border-color:var(--ok);color:var(--ok)}
+.node.fail{border-color:var(--bad);color:var(--bad);animation:shake .4s}
+.node.wait{border-color:var(--warn);color:var(--warn);animation:pulse 1.4s ease-in-out infinite}
+.node.undo{border-color:var(--warn);color:var(--warn);background:#1a1508}
+.node.dead{border-color:var(--bad);color:#fff;background:#2a0f12}
+@keyframes shake{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+@keyframes pulse{50%{box-shadow:0 0 22px -2px var(--warn)}}
+.pkt{position:absolute;left:0;top:0;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;background:var(--acc);box-shadow:0 0 18px 4px var(--acc);z-index:2;transition:transform .6s var(--ease);pointer-events:none;opacity:0}
+.pkt.on{opacity:1}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}
+.panel{background:#0a0d14;border:1px solid var(--line);border-radius:12px;padding:12px;min-height:150px}
+.panel h3{margin:0 0 8px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}
+#log{font:12.5px/1.7 ui-monospace,Menlo,monospace;max-height:210px;overflow:auto}
+#log div{animation:li .4s var(--ease)}
+@keyframes li{from{opacity:0;transform:translateX(-8px)}}
+.l-ok{color:var(--ok)}.l-bad{color:var(--bad)}.l-warn{color:var(--warn)}
+#chain{display:flex;flex-direction:column;gap:6px;max-height:210px;overflow:auto}
+.blk{font:12px ui-monospace,Menlo,monospace;border:1px solid var(--line);border-left:3px solid var(--ok);border-radius:8px;padding:5px 8px;animation:li .5s var(--ease);display:flex;justify-content:space-between;gap:8px}
+.blk.bad{border-left-color:var(--bad);color:var(--bad)}
+.blk i{color:var(--mut);font-style:normal}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;min-height:40px}
+.verdict{font-size:13px;margin-top:8px;min-height:20px}
 .scroll{overflow-x:auto}
-svg{width:100%;height:auto;background:var(--card);border:1px solid var(--line);border-radius:8px}
-svg text{fill:var(--fg);font:12px ui-monospace,Menlo,monospace}
-svg rect{fill:var(--bg);stroke:var(--acc);stroke-width:1.5}
-svg path{stroke:var(--mut);fill:none;stroke-width:1.5}
-svg .d{stroke-dasharray:4 3}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;vertical-align:top;padding:9px 8px;border-bottom:1px solid var(--line)}
+th{color:var(--mut);font-weight:600}
+tr{transition:background .25s}tbody tr:hover,tr:hover td{background:#ffffff08}
+pre{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;overflow:auto}
+@media(max-width:720px){.pipe{grid-template-columns:repeat(2,1fr)}.cols{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}.rv{opacity:1;transform:none}}
 </style>
 </head>
 <body>
+<div class="orbs" aria-hidden="true"><div class="orb a"></div><div class="orb b"></div><div class="orb c"></div></div>
+<div class="grid" aria-hidden="true"></div>
 <main>
-<h1>clinical-workflow-lab</h1>
-<p>A referral moves through eligibility, scheduling and notification as a saga. It retries transient failures, undoes earlier steps on a permanent one, and hands steps with no API to a work-item queue. Python stdlib only, synthetic data only.</p>
-<p><a href="https://github.com/gerardrecinto/clinical-workflow-lab">Source on GitHub</a></p>
+<h1 class="rv">clinical-workflow-lab</h1>
+<p class="lead rv">A referral moves through eligibility, scheduling and notification as a saga. It retries transient failures, undoes earlier steps on a permanent one, and hands steps with no API to a work-item queue. Python stdlib only, synthetic data only.</p>
+<div class="cta rv"><a class="btn p" href="#sim">Run a referral</a><a class="btn" href="https://github.com/gerardrecinto/clinical-workflow-lab">Source on GitHub</a></div>
+<div class="stats rv">
+<div class="stat"><b data-n="14">0</b><span>tests passing</span></div>
+<div class="stat"><b data-n="5">0</b><span>demo scenarios</span></div>
+<div class="stat"><b data-n="4">0</b><span>attempts, then dead letter</span></div>
+<div class="stat"><b data-n="0">0</b><span>runtime dependencies</span></div>
+</div>
 
-<h2>Flow</h2>
-<svg viewBox="0 0 820 230" role="img" aria-label="Referral flow from signed API through outbox to saga steps, with a work-item queue and dead-letter state">
-<rect x="10" y="20" width="120" height="48"/><text x="24" y="48">signed API</text>
-<rect x="170" y="20" width="120" height="48"/><text x="188" y="48">outbox event</text>
-<rect x="330" y="20" width="140" height="48"/><text x="346" y="48">saga orchestrator</text>
-<rect x="510" y="20" width="130" height="48"/><text x="528" y="48">eligibility</text>
-<rect x="510" y="100" width="130" height="48"/><text x="528" y="128">scheduling</text>
-<rect x="510" y="180" width="130" height="40"/><text x="540" y="204">notify</text>
-<rect x="680" y="20" width="130" height="48"/><text x="690" y="48">work-item queue</text>
-<rect x="170" y="130" width="120" height="48"/><text x="188" y="158">dead letters</text>
-<rect x="330" y="130" width="140" height="48"/><text x="352" y="158">compensation</text>
-<path d="M130 44H170M290 44H330M470 44H510M575 68V100M575 148V180"/>
-<path class="d" d="M640 44H680M470 70L510 124M330 70L250 130M430 68V130"/>
-<text x="650" y="90">manual step</text>
-<text x="20" y="215" class="mut">dashed: manual hand-off, permanent failure, retries exhausted</text>
-</svg>
-
-<h2>What each requirement maps to</h2>
-<div class="scroll"><table>
+<h2 class="rv" id="sim">Try it</h2>
+<p class="mut rv">A browser replay of the same saga rules as <code>src/cwl/workflow.py</code> and <code>bus.py</code>. The Python code is the source of truth; hashes below are real SHA-256 computed in your browser.</p>
+<div class="sim rv">
+<div class="scn" role="group" aria-label="Scenario">
+<button class="btn" data-s="happy">Happy path</button>
+<button class="btn" data-s="portal">Portal-only payer</button>
+<button class="btn" data-s="inactive">Inactive coverage</button>
+<button class="btn" data-s="late">Late failure</button>
+<button class="btn" data-s="transient">Transient failure</button>
+<button class="btn" data-s="down">Scheduler down</button>
+</div>
+<div class="pipe" id="pipe">
+<div class="node" id="n-api">signed API</div><div class="node" id="n-outbox">outbox</div>
+<div class="node" id="n-eligibility">eligibility</div><div class="node" id="n-scheduling">scheduling</div>
+<div class="node" id="n-notify">notify</div><div class="node" id="n-done">done</div>
+<div class="node" style="grid-column:3" id="n-queue">work queue</div><div class="node" id="n-undo">compensation</div><div class="node" id="n-dead">dead letters</div>
+<div class="pkt" id="pkt"></div>
+</div>
+<div class="actions" id="actions"></div>
+<div class="cols">
+<div class="panel"><h3>Event log</h3><div id="log" aria-live="polite"></div></div>
+<div class="panel"><h3>Audit chain</h3><div id="chain"></div>
+<div class="actions"><button class="btn" id="tamper" disabled>Tamper with row 1</button></div><div class="verdict" id="verdict"></div></div>
+</div>
+</div>
+<h2 class="rv">What each requirement maps to</h2>
+<div class="scroll rv"><table>
 <tr><th>Skill</th><th>Where</th><th>What it shows</th></tr>
 <tr><td>Healthcare workflow automation</td><td><code>workflow.py</code></td><td>Referral saga with compensation: a late notify failure releases the reserved slot.</td></tr>
 <tr><td>EHR and enterprise integration</td><td><code>fhir.py</code></td><td>Strict intake in, FHIR R4 ServiceRequest and Task out. No live EHR connection.</td></tr>
@@ -64,9 +129,9 @@ svg .d{stroke-dasharray:4 3}
 <tr><td>Team leadership and mentoring</td><td>decisions below, PR checklist</td><td>Written trade-offs and a five-question review checklist a team can adopt. The real mentoring record is on my resume, not in this repo.</td></tr>
 </table></div>
 
-<h2>Decisions and trade-offs</h2>
-<p>All design-only: this lab was never run in production.</p>
-<div class="scroll"><table>
+<h2 class="rv">Decisions and trade-offs</h2>
+<p class="rv">All design-only: this lab was never run in production.</p>
+<div class="scroll rv"><table>
 <tr><th>Chose</th><th>Over</th><th>Why</th><th>Costs</th><th>Flip when</th></tr>
 <tr><td>Outbox in the same database transaction</td><td>Publish to a broker after commit</td><td>No window where state changes but the event is lost.</td><td>Needs a poller; delivery is at-least-once, so handlers must be idempotent.</td><td>Throughput outgrows one database. Move to a broker with a relay.</td></tr>
 <tr><td>Orchestrated saga</td><td>Choreography by events</td><td>One place shows where a referral is stuck and what to undo.</td><td>The orchestrator knows every step and is a coupling point.</td><td>Steps are owned by separate teams that need independent release.</td></tr>
@@ -75,16 +140,71 @@ svg .d{stroke-dasharray:4 3}
 <tr><td>SQLite</td><td>Postgres and SQS</td><td>Clone and run in seconds.</td><td>Single writer; the lock serializes everything.</td><td>Always, for anything beyond a demo. Terraform shows the SQS side.</td></tr>
 </table></div>
 
-<h2>Run it</h2>
-<pre>git clone https://github.com/gerardrecinto/clinical-workflow-lab
+<h2 class="rv">Run it</h2>
+<pre class="rv">git clone https://github.com/gerardrecinto/clinical-workflow-lab
 cd clinical-workflow-lab
 python3 -m venv .venv &amp;&amp; . .venv/bin/activate
 pip install pytest
 PYTHONPATH=src python -m cwl.demo
 PYTHONPATH=src python -m pytest -q</pre>
 
-<h2>Limits</h2>
-<p class="mut">Synthetic data. No real EHR, Epic, Notable or UiPath integration. Not a HIPAA compliance claim: encryption at rest, access control, BAAs and retention are deployment work this lab does not do. Slot and payer services are in-memory stand-ins.</p>
+<h2 class="rv">Limits</h2>
+<p class="mut rv">Synthetic data. No real EHR, Epic, Notable or UiPath integration. Not a HIPAA compliance claim: encryption at rest, access control, BAAs and retention are deployment work this lab does not do. Slot and payer services are in-memory stand-ins.</p>
 </main>
+<script>
+(()=>{
+const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $=id=>document.getElementById(id), sleep=ms=>new Promise(r=>setTimeout(r,RM?0:ms));
+// scroll reveal + count-up
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(!e.isIntersecting)return;e.target.classList.add('in');e.target.querySelectorAll('[data-n]').forEach(c=>{const t=+c.dataset.n;if(RM||!t){c.textContent=t;return}let i=0;const id=setInterval(()=>{c.textContent=++i;if(i>=t)clearInterval(id)},900/t)});io.unobserve(e.target)}),{threshold:.12});
+document.querySelectorAll('.rv').forEach(e=>io.observe(e));
+// audit chain with real SHA-256
+let rows=[];
+async function sha(s){if(!crypto.subtle){let h=2166136261;for(const c of s){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return(h>>>0).toString(16).padStart(8,'0').repeat(8)}
+ const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
+const H=(p,r)=>sha(`${p}|${r.ts}|${r.actor}|${r.action}|${r.ref}`);
+async function audit(actor,action,ref){const prev=rows.length?rows[rows.length-1].hash:'0'.repeat(64);const r={ts:rows.length+1,actor,action,ref,prev};r.hash=await H(prev,r);rows.push(r);draw(null);$('tamper').disabled=false}
+async function verify(){let prev='0'.repeat(64);for(let i=0;i<rows.length;i++){const r=rows[i];if(r.prev!==prev||r.hash!==await H(prev,r))return i;prev=r.hash}return -1}
+function draw(bad){$('chain').innerHTML=rows.map((r,i)=>`<div class="blk${bad!==null&&i>=bad?' bad':''}"><span>${i+1} ${r.actor} ${r.action}</span><i>${r.hash.slice(0,10)}</i></div>`).join('')||'<span class="mut">empty</span>';$('chain').scrollTop=1e9}
+$('tamper').onclick=async()=>{if(!rows.length)return;rows[0].actor='mallory';const b=await verify();draw(b);$('verdict').innerHTML=b<0?'intact':`<span class="l-bad">chain breaks at row ${b+1}. Editing one row invalidates every row after it.</span>`;$('tamper').disabled=true};
+// sim
+const N=['api','outbox','eligibility','scheduling','notify','done','queue','undo','dead'];
+const log=(t,c='')=>{const d=document.createElement('div');if(c)d.className=c;d.textContent=t;$('log').appendChild(d);$('log').scrollTop=1e9};
+const set=(n,c)=>{const e=$('n-'+n);e.className='node'+(c?' '+c:'')};
+async function go(n){const e=$('n-'+n),p=$('pkt'),pr=$('pipe').getBoundingClientRect(),r=e.getBoundingClientRect();p.classList.add('on');p.style.transform=`translate(${r.left-pr.left+r.width/2}px,${r.top-pr.top+r.height/2}px)`;await sleep(650)}
+let busy=false,resume=null;
+async function run(s){
+ if(busy){if(resume){const r=resume;resume=null;$('actions').innerHTML='';r('abort')}return}busy=true;rows=[];draw(null);$('log').innerHTML='';$('verdict').textContent='';$('actions').innerHTML='';$('tamper').disabled=true;N.forEach(n=>set(n,''));
+ document.querySelectorAll('.scn .btn').forEach(b=>b.setAttribute('aria-pressed',b.dataset.s===s));
+ const done=[];let slot=false;
+ set('api','active');await go('api');log('POST /referrals signed, schema valid, 202');await audit('api','referral.created','ServiceRequest/'+s);set('api','ok');
+ set('outbox','active');await go('outbox');log('outbox row written in the same transaction');set('outbox','ok');
+ const comp=async(step,why)=>{set(step,'fail');log(`${step} rejected: ${why}`,'l-bad');await sleep(500);set('undo','active');await go('undo');
+  for(const d of done.slice().reverse()){if(d==='scheduling'&&slot){log('undo scheduling: slot released','l-warn');slot=false}else log('undo '+d+' (nothing to undo)','l-warn');await sleep(350)}
+  set('undo','undo');await audit('workflow','referral.compensated','ServiceRequest/'+s);log('state COMPENSATED','l-warn')};
+ for(const step of ['eligibility','scheduling','notify']){
+  set(step,'active');await go(step);
+  if(step==='eligibility'&&s==='portal'){set(step,'wait');log('payer has no API: work item opened','l-warn');set('queue','active');await go('queue');await audit('workflow','queue.opened','Task/1');set('queue','wait');
+   const res=await new Promise(r=>{resume=r;$('actions').innerHTML='<button class="btn p" data-r="active">Bot: coverage active</button><button class="btn" data-r="inactive">Bot: coverage inactive</button>';$('actions').onclick=e=>{const v=e.target.dataset.r;if(v){$('actions').innerHTML='';r(v)}}});
+   resume=null;if(res==='abort'){busy=false;return}
+   await audit('bot','queue.completed','Task/1');set('queue','ok');
+   if(res==='inactive'){await comp('eligibility','inactive_coverage');busy=false;return}
+   log('bot completed: active, saga resumes','l-ok');done.push(step);set(step,'ok');continue}
+  if(step==='eligibility'&&s==='inactive'){await comp(step,'inactive_coverage');busy=false;return}
+  if(step==='scheduling'&&(s==='transient'||s==='down')){
+   const fails=s==='transient'?2:99;let a=0,okk=false;
+   while(a<4){a++;if(a<=fails){set(step,'fail');log(`attempt ${a}: scheduler timeout`+(a<4?`, retry in ${2**a}s`:''),'l-bad');await sleep(600);if(a<4){set(step,'active');await sleep(500)}}else{okk=true;break}}
+   if(!okk){set('dead','dead');await go('dead');log('4 attempts used: event moved to dead letters, alarm fires','l-bad');busy=false;return}
+   log(`attempt ${a}: reserved (retry was safe: idempotent on referral id)`,'l-ok');slot=true}
+  else if(step==='scheduling'){log('slot reserved','l-ok');slot=true}
+  if(step==='notify'&&s==='late'){await comp(step,'no_contact');busy=false;return}
+  if(step==='eligibility')log('coverage active','l-ok');
+  if(step==='notify')log('notification sent','l-ok');
+  done.push(step);set(step,'ok');await sleep(250)}
+ set('done','active');await go('done');set('done','ok');await audit('workflow','referral.done','ServiceRequest/'+s);log('state DONE','l-ok');busy=false}
+document.querySelector('.scn').onclick=e=>{const s=e.target.dataset.s;if(s)run(s)};
+draw(null);
+})();
+</script>
 </body>
 </html>
