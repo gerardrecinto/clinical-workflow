@@ -33,4 +33,4 @@ To serve the API: `CWL_SECRET=change-me PYTHONPATH=src python -m cwl.api`. Reque
 - `src/cwl/fhir.py` strict intake validation, FHIR R4 ServiceRequest and Task
 - `src/cwl/security.py` request signing, PHI redaction, hash-chained audit
 - `src/cwl/api.py` HTTP routes
-- `infra/aws` SQS with dead-letter queue, KMS, least-privilege IAM, DLQ alarm (validated in CI only, never applied)
+- `infra/aws` SQS with dead-letter queue, KMS, least-privilege IAM, DLQ alarm (validated in CI)
