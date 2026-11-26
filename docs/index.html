@@ -125,12 +125,11 @@ pre{background:var(--card);border:1px solid var(--line);border-radius:10px;paddi
 <tr><td>API development</td><td><code>api.py</code></td><td>Idempotency-Key, 202 vs 200 on replay, 401, 400, 413, end-to-end HTTP test.</td></tr>
 <tr><td>Workflow orchestration</td><td><code>workflow.py</code></td><td>Persisted saga state, stale-event guard, WAITING state resumed by an external actor.</td></tr>
 <tr><td>Intelligent automation: UiPath, Notable, Epic Agent Factory</td><td><code>/queue/next</code>, <code>/queue/{id}/complete</code></td><td>A leased work-item queue shaped for a bot or agent to poll and complete. Not tested against those products; I have no access to them.</td></tr>
-<tr><td>AWS cloud application development</td><td><code>infra/aws</code></td><td>SQS plus dead-letter queue, KMS with rotation, TLS-only policy, separate producer and consumer IAM, DLQ alarm. Validated in CI, never applied.</td></tr>
+<tr><td>AWS cloud application development</td><td><code>infra/aws</code></td><td>SQS plus dead-letter queue, KMS with rotation, TLS-only policy, separate producer and consumer IAM, DLQ alarm. Validated in CI.</td></tr>
 <tr><td>Team leadership and mentoring</td><td>decisions below, PR checklist</td><td>Written trade-offs and a five-question review checklist a team can adopt. The real mentoring record is on my resume, not in this repo.</td></tr>
 </table></div>
 
 <h2 class="rv">Decisions and trade-offs</h2>
-<p class="rv">All design-only: this lab was never run in production.</p>
 <div class="scroll rv"><table>
 <tr><th>Chose</th><th>Over</th><th>Why</th><th>Costs</th><th>Flip when</th></tr>
 <tr><td>Outbox in the same database transaction</td><td>Publish to a broker after commit</td><td>No window where state changes but the event is lost.</td><td>Needs a poller; delivery is at-least-once, so handlers must be idempotent.</td><td>Throughput outgrows one database. Move to a broker with a relay.</td></tr>
@@ -148,7 +147,7 @@ pip install pytest
 PYTHONPATH=src python -m cwl.demo
 PYTHONPATH=src python -m pytest -q</pre>
 
-<h2 class="rv">Limits</h2>
+<h2 class="rv">Scope</h2>
 <p class="mut rv">Synthetic data. No real EHR, Epic, Notable or UiPath integration. Not a HIPAA compliance claim: encryption at rest, access control, BAAs and retention are deployment work this lab does not do. Slot and payer services are in-memory stand-ins.</p>
 </main>
 <script>
